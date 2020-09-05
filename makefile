@@ -44,3 +44,4 @@ install:  $(EXEFILES)
 
 clean:
 	rm -f rdrprep.o rdrprep
+	rm -f $(DESTDIR)/$(EXEFILES)
