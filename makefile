@@ -3,6 +3,7 @@
 #
 
 DESTDIR  = $(PREFIX)/usr/local/bin
+CC = gcc
 
 # Standard flags for all architectures
 CFLAGS	 = -O2 -Wall -fPIC 
@@ -11,8 +12,8 @@ LFLAGS	 = -lpthread
 
 # Add default flags for Pentium compilations
 ifndef HOST_ARCH
-CFLAGS	 += -malign-double -march=pentiumpro
-CFL_370  += -malign-double -march=pentiumpro
+CFLAGS	 += -malign-double 
+CFL_370  += -malign-double 
 endif
 
 # Handle host architecture if specified
@@ -21,12 +22,12 @@ CFLAGS	 += -malign-double
 CFL_370	 += -malign-double
 endif
 ifeq ($(HOST_ARCH),i586)
-CFLAGS	 += -malign-double -march=pentium
-CFL_370  += -malign-double -march=pentium
+CFLAGS	 += -malign-double 
+CFL_370  += -malign-double 
 endif
 ifeq ($(HOST_ARCH),i686)
-CFLAGS	 += -malign-double -march=pentiumpro
-CFL_370  += -malign-double -march=pentiumpro
+CFLAGS	 += -malign-double 
+CFL_370  += -malign-double 
 endif
 
 EXEFILES = rdrprep
@@ -41,3 +42,5 @@ rdrprep: $(RECV_OBJS)
 install:  $(EXEFILES)
 	cp $(EXEFILES) $(DESTDIR)
 
+clean:
+	rm -f rdrprep.o rdrprep
