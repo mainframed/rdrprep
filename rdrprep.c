@@ -1,6 +1,6 @@
 // Things to do:
 //
-//	1) provide +k<text> to specify include escape key
+//	1) provide +k<text> to specify include escape key
 //	2) support other than lrecl 80 EBCDIC files
 //	3) make include command syntax more user friendly
 //
