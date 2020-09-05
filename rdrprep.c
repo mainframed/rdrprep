@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
 		cleanup();
 		return rc;
 	}
-	getrec();
+	getrec();
 	while ((include_level > -1) && !(eof_flag) && !(fatal)) {
 		putrec();
 		if (!fatal)
@@ -678,7 +678,7 @@ void cleanup( ) {
 		if (FILE_STACK[include_level].finc)
 			fclose(FILE_STACK[include_level].finc);
 	}
-	diagflow("exit cleanup");
+	diagflow("exit cleanup");
 	return;
 } /* cleanup */
 
