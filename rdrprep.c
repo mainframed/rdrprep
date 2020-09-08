@@ -14,10 +14,10 @@
 
 	Execution environment: Linux
 
-        This program prepares a deck for submission to a virtual card reader.
-        It supports a rudimentary "include" facility which can be used to
-        cause additional decks to be embedded into the resulting (combined)
-        deck.  Includes are only recognized in ASCII input files, but
+    This program prepares a deck for submission to a virtual card reader.
+    It supports a rudimentary "include" facility which can be used to
+    cause additional decks to be embedded into the resulting (combined)
+    deck.  Includes are only recognized in ASCII input files, but
 	included decks may include other decks up to a maximum level 
 	(nested includes) specified by the FILE_DEPTH definition.
 
@@ -417,8 +417,13 @@ eof:
 				return rc;
 			}
 		}
-		if (oldchar == '\n')			// suppress newline
+		if (oldchar == '\n') {		// suppress newline
+		    if(i == 0) {                // include newline if its by itself
+				ascii_line[i] = 32; 
+				ascii_count++;
+			}
 			break;
+		}
 		if (oldchar == '\r')
 			break;
 		ascii_line[i] = oldchar;
