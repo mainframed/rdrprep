@@ -430,12 +430,12 @@ eof:
 			oldchar = fgetc(FILE_STACK[include_level].finc);	// discard extraneous ASCII chars
 			i++;
 			if (oldchar == EOF) {
-				if (i > 0) 
+				if (i > 0 && optdump == '+')
 					printf("Warning! Truncated %i records!\n", i);
 				goto eof;
 				}
 		}
-		if (i > 0) 
+		if (i > 0 && optdump == '+') 
 			printf("Warning! Truncated %i records!\n", i);
 	}
 	if (ascii_count) {
