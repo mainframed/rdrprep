@@ -9,7 +9,6 @@ CC = gcc
 CFLAGS	 = -O2 -Wall -fPIC 
 CFL_370  = -O2 -Wall -fPIC 
 LFLAGS	 = -lpthread
-DEBUG    = -D JMM_DIAG
 
 # Add default flags for Pentium compilations
 ifndef HOST_ARCH
@@ -38,10 +37,6 @@ RECV_OBJS = rdrprep.o
 all:	   $(EXEFILES)
 
 rdrprep: $(RECV_OBJS)
-	$(CC) -o rdrprep $(RECV_OBJS)
-
-debug: rdrprep.c
-	$(CC) $(DEBUG) -c -o rdrprep.o rdrprep.c
 	$(CC) -o rdrprep $(RECV_OBJS)
 
 install:  $(EXEFILES)
