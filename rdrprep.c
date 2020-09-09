@@ -1,16 +1,16 @@
 // Things to do:
 //
 //	1) provide +k<text> to specify include escape key
-//	2) support other than lrecl 80 EBCDIC files
-//	3) make include command syntax more user friendly
-//
+//	2) make include command syntax more user friendly
+//  3) Fix ^ mapping 
 
 /*
-			rdrprep Version 00.02
+			rdrprep
 			Released under QPL 
 
 	Author: James M. Morrison	jmorrison@ameritech.net
 					jmm@ensose.com
+	Update: Philip Young
 
 	Execution environment: Linux
 
@@ -31,11 +31,13 @@
 
 	ASCII input files are assumed to be of variable line length,
 	EBCDIC input files are assumed to be of fixed (lrecl) length.
-	Lrecl is currently fixed at 80.
 
 	2001-02-07	v 00.00 base release
 	2001-04-07	v 00.01 ignore zero length ASCII input records
 	2002-12-02	v 00.02 repair ASCII record length = 80 bug
+	2020-08-09  v 00.03 Fixed pipe map, truncated record error warning, 
+	                    rewrote arg parser, fixed make file, fixed new 
+						line bug on ascii files.
 */
 
 #include <stdio.h>
@@ -86,6 +88,7 @@ static int  opttruncate;                // truncate long records
 static int  optprint;                   // print
 
 char		*program	= "rdrprep";	// program name
+char        *version = "0.3";
 char		*notprogram 	= "       ";	// blanks same length as program
 int		fatal = 0;			// 1 = abandon execution
 
@@ -504,13 +507,11 @@ int cmdline(int argc, char *argv[]) {
 	int		opthit;
 	char		optchar;
 	char		*arg;
-
-
+	int c;
 
 	diagflow("enter cmdline");
 
 
-	int c;
 
   	while (1) 
   	{
@@ -523,6 +524,7 @@ int cmdline(int argc, char *argv[]) {
 			{"no-truncate",no_argument,    &opttruncate, 1 }, //opttrunc
 			{"print",   no_argument,       &optprint,    1 }, //optlist
 			{"lrecl",   required_argument, NULL,        'l'},
+			{"version", no_argument,       NULL,        'v'},
 			{NULL,      0,                 NULL,         0 }
     	};
 
@@ -538,6 +540,10 @@ int cmdline(int argc, char *argv[]) {
 				break;
 			case 'l':
 				lrecl = atoi(optarg);
+				break;
+			case 'v':
+				printf("rdrprep version: %s built: %s\n", version, __TIMESTAMP__);
+				exit(1);
 				break;
 			case '?':
 				printf("Unknown option %c\n", optopt);
@@ -614,9 +620,9 @@ int cmdline(int argc, char *argv[]) {
 void printhelp( ) {
 
 	diagflow("enter printhelp");
-	printf("\n");
+	printf("rdrprep\n");
 	printf("Copyright 2001-2002, James M. Morrison\n");
-	printf("Version 00.02\n");
+	printf("Version: %s \nBuilt:   %s\n", version, __TIMESTAMP__);
 	printf("\n"
 		"This program prepares an ASCII file for submission to a Hercules virtual\n"
 		"card reader.  It reads the input file, and provides a mechanism to include\n"
@@ -648,6 +654,7 @@ void printhelp( ) {
 	printf("\n"
 			"Options:\n"
 			"--help/-h		this help message\n"
+			"--version      prints version and build date\n"
 			"--verbose      be verbose\n"
 			"--debug        print debug information\n"
 			"--no-truncate  disable truncating after %d records\n"
