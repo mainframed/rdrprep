@@ -60,7 +60,6 @@ int  parse_include( );
 int  getASCIIline( );
 int  getEBCDICline( );
 int  cmdline(int, char *[]); 
-int  parseopt(char *, char *, char *); 
 void printhelp(); 
 void cleanup(); 
 void ebcdic2ascii(void *, int); 
@@ -422,11 +421,19 @@ eof:
 		ascii_line[i] = oldchar;
 		ascii_count++;
 	}
+	i = 0;
 	if (opttrunc == '+') {
 		while (oldchar != '\n') {
 			oldchar = fgetc(FILE_STACK[include_level].finc);	// discard extraneous ASCII chars
-			if (oldchar == EOF) goto eof;
+			i++;
+			if (oldchar == EOF) {
+				if (i > 0) 
+					printf("Warning! Truncated %i records!\n", i);
+				goto eof;
+				}
 		}
+		if (i > 0) 
+			printf("Warning! Truncated %i records!\n", i);
 	}
 	if (ascii_count) {
 		if (!memcmp(ascii_line, include_key, strlen(include_key))) {
@@ -547,14 +554,16 @@ int cmdline(int argc, char *argv[]) {
 			exit(1);
 	}
 
-	if (optdebug)
+	if (optdebug) {
 		optdump = '+';
+		optflow = '+';
+		}
 	if (optverbose)
 		optflow = '+';
 	if (opttruncate)
 		opttrunc = '-';
 	if (optprint)
-		optlist = '-';
+		optlist = '+';
 
 
 	if (argc > optind ) {								// argument = input filename
@@ -597,24 +606,6 @@ int cmdline(int argc, char *argv[]) {
 	diagflow("exit cmdline");
 	return 0;
 } /* cmdline */
-
-//--------------------------------------------------------------------
-
-//* Parse option
-
-int parseopt(char *parg, char *pvalue, char *flag) {
-
-	diagflow("enter parseopt");
-	if ((strlen(parg) - 1) == strlen(pvalue)) {
-		if (!(memcmp(&parg[1], pvalue, strlen(pvalue)))) {
-			*flag = parg[0];
-			return 1;
-		} else 
-			return 0;
-	}
-	diagflow("exit parseopt");
-	return 0;
-} /* parseopt */
 
 //--------------------------------------------------------------------
 
