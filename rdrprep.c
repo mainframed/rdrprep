@@ -42,22 +42,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <getopt.h> 
 
 // --------------------------------------------------------------------
 // Diagnostics section
 // --------------------------------------------------------------------
 
-// #define JMM_DIAG
-#ifdef JMM_DIAG
-	#define DIAG_GEN_FLOW
-#endif
-
-#undef diagflow
-#ifndef DIAG_GEN_FLOW
-    #define diagflow(x)
-#else	// note some diagflows will produce output until parseopt sets '-'
-    #define diagflow(x) if (optflow == '+') printf(x "\n")
-#endif
+#define diagflow(x) if (optflow == '+') printf(x "\n")
 
 // ------- Function prototypes ---------------------------------------
  
@@ -80,17 +71,20 @@ void data_dump(void *, int);
 
 // Debugging
 
-char		optflow			= '+';		// diagflow printed
+char		optflow			= '-';		// diagflow printed
 
 // Options
 
-char		opthalt			= '+';		// halt for <press enter> msg in halt()
 char		optabout		= '-';		// don't display copyright info
 char		opthelp			= '-';		// don't display general help
 char		optsyntax		= '-';		// don't display syntax help
 char		optlist			= '-';		// list records on stdout
 char		optdump			= '-';		// dump records on stdout
 char		opttrunc		= '+';		// truncate long ASCII lines
+static int  optdebug;                   // debug
+static int  optverbose;                 // verbose
+static int  opttruncate;                // truncate long records
+static int  optprint;                   // print
 
 char		*program	= "rdrprep";	// program name
 char		*notprogram 	= "       ";	// blanks same length as program
@@ -229,17 +223,16 @@ int getrec( ) {
 
 	diagflow("enter getrec");
 	if (feof(FILE_STACK[0].finc)) {
-#ifdef DIAG_GEN_FLOW
+	if (optdebug)
 		printf(">> getrec EOF %s",
 		       FILE_STACK[include_level].FNinc);
-#endif
 		return EOF;
 	}
 
-#ifdef DIAG_GEN_FLOW
-	printf(">> getrec %s\n",
+	if (optdebug)
+		printf(">> getrec %s\n",
 	       FILE_STACK[include_level].FNinc);
-#endif
+
 	if (FILE_STACK[include_level].FCHARSETinc == 'E')
 		rc = getEBCDICline();
 	else {
@@ -269,10 +262,10 @@ int close_include( ) {
 		return fatal;
 	} else {
 		fclose(FILE_STACK[include_level].finc);
-#ifdef DIAG_GEN_FLOW
+	if (optdebug)
 		printf(">> close_include %s\n",
 		       FILE_STACK[include_level].FNinc);
-#endif
+
 		include_level--;
 		if (include_level > -1)
 			rc = getrec();		// redrive read
@@ -310,23 +303,23 @@ int open_include( ) {
 		if (FILE_STACK[include_level].finc == NULL) {
 			printf("Error opening input file %s\n", 
 			       FILE_STACK[include_level].FNinc); 
-#ifdef DIAG_GEN_FLOW
-			printf(">> File mode %s\n", 
-			       FILE_STACK[include_level].FMODEinc);
-			printf(">> Character set %c\n",
-			       FILE_STACK[include_level].FCHARSETinc);
-#endif
+			if (optdebug) {
+				printf(">> File mode %s\n", 
+					FILE_STACK[include_level].FMODEinc);
+				printf(">> Character set %c\n",
+					FILE_STACK[include_level].FCHARSETinc);
+			}
 			fatal = 1;
 			return fatal;
 		} else {
-#ifdef DIAG_GEN_FLOW
-			printf(">> Opening %s\n",
-			       FILE_STACK[include_level].FNinc);
-			printf(">> File mode %s\n", 
-			       FILE_STACK[include_level].FMODEinc);
-			printf(">> Character set %c\n",
-			       FILE_STACK[include_level].FCHARSETinc);
-#endif
+			if (optdebug) {
+				printf(">> Opening %s\n",
+					FILE_STACK[include_level].FNinc);
+				printf(">> File mode %s\n", 
+					FILE_STACK[include_level].FMODEinc);
+				printf(">> Character set %c\n",
+					FILE_STACK[include_level].FCHARSETinc);
+			}
 		}
 		rc = getrec();
 	} 
@@ -368,9 +361,9 @@ int parse_include( ) {
 			if (include_line[i] != ' ')
 				FILE_STACK[include_level].FNinc[j] = include_line[i];
 		}
-#ifdef DIAG_GEN_FLOW
-		printf("Parsed %s\n", FILE_STACK[include_level].FNinc);
-#endif
+		if (optdebug)
+			printf("Parsed %s\n", FILE_STACK[include_level].FNinc);
+
 	} else {
 		printf("Error parsing include statement:\n");
 		printf("%s\n", include_line);
@@ -446,8 +439,8 @@ eof:
 		} else {
 			memcpy(line, ascii_line, ascii_count);
 			ascii2ebcdic(line, ascii_count);
-//			if (optlist == '+') 
-//			    printf("getASCIIline %d %s\n", ascii_count, ascii_line);
+			if (optlist == '+') 
+			    printf("getASCIIline %d %s\n", ascii_count, ascii_line);
 			if (optdump == '+') {
 			    printf("getASCIIline dump ascii_line\n");
 			    data_dump(ascii_line, strlen(ascii_line));
@@ -505,62 +498,71 @@ int cmdline(int argc, char *argv[]) {
 	char		optchar;
 	char		*arg;
 
+
+
 	diagflow("enter cmdline");
-	if (argc < 2) {
-	    optsyntax = '+';
-	    printhelp();
-	    fatal = 1;
-	    return fatal;
-	}
-	opthit = 1;										// assume we find + or -
-	for (argnum = 1; ((opthit) && (argnum < argc)); argnum++) {
-		arg = argv[argnum];
-		lenarg = strlen(argv[argnum]);
-		arghit = 0;									// not 0 when we find option match
-		optchar = 0x00;
-		switch (argv[argnum][0]) {
-		case '+':
-			optchar = '+';
+
+
+	int c;
+
+  	while (1) 
+  	{
+    	int option_index = 0;
+    	static struct option long_options[] = 
+    	{
+			{"help",    no_argument,       NULL,        'h'},
+			{"verbose", no_argument,       &optverbose,  1 }, //optflow
+			{"debug",   no_argument,       &optdebug,    1 }, //optdump
+			{"no-truncate",no_argument,    &opttruncate, 1 }, //opttrunc
+			{"print",   no_argument,       &optprint,    1 }, //optlist
+			{"lrecl",   required_argument, NULL,        'l'},
+			{NULL,      0,                 NULL,         0 }
+    	};
+
+		c = getopt_long(argc, argv, "hl:", long_options, &option_index);
+		if (c == -1)
 			break;
-		case '-':
-			optchar = '-';
-			break;
-		default:
-			opthit = 0;								// no + or -
-			argnum--;								// we went one too far, back up
-			break;
-		}
-		if (optchar) {
-			arghit += parseopt(arg, "about",	&optabout);
-			arghit += parseopt(arg, "help",		&opthelp);
-			arghit += parseopt(arg, "syntax",	&optsyntax);
-			arghit += parseopt(arg, "list",		&optlist);
-			arghit += parseopt(arg, "dump",		&optdump);
-			arghit += parseopt(arg, "flow",		&optflow);
-			arghit += parseopt(arg, "trunc",	&opttrunc);
-			if (arghit == 0) {
-				printf("Option error: %s\n", argv[argnum]);
+		switch (c) 
+			{
+			case 'h':
+				//printf("Printing Help\n");
 				printhelp();
-				fatal = 1;
-				return fatal;
+				exit(0);
+				break;
+			case 'l':
+				lrecl = atoi(optarg);
+				break;
+			case '?':
+				printf("Unknown option %c\n", optopt);
+				exit(1);
+				break;
+			case ':':
+				printf("Option --lrecl/-l requires a record length.\n");
+				break;
 			}
-		}
 	}
 
-	if ((opthelp=='+') 
-		|| (optsyntax=='+') 
-		|| (optabout=='+')) {
-		printhelp();
-		fatal = 1;
-		return fatal;
+	if (argc - optind <= 0) {
+			printhelp();
+			exit(1);
 	}
 
-	if (argc > argnum) {								// argument = input filename
+	if (optdebug)
+		optdump = '+';
+	if (optverbose)
+		optflow = '+';
+	if (opttruncate)
+		opttrunc = '-';
+	if (optprint)
+		optlist = '-';
+
+
+	if (argc > optind ) {								// argument = input filename
 		memset(&FILE_STACK[include_level], 0, sizeof(FILE_INC));
-		strcpy(FILE_STACK[include_level].FNinc, argv[argnum]);
+		strcpy(FILE_STACK[include_level].FNinc, argv[optind]);
 		strcpy(FILE_STACK[include_level].FMODEinc, "r");
 		FILE_STACK[include_level].FCHARSETinc = 'A';
-		argnum++;
+		optind++;
 
 		FILE_STACK[include_level].finc = 
 			fopen(FILE_STACK[include_level].FNinc, 				// open cmdline input file
@@ -573,10 +575,10 @@ int cmdline(int argc, char *argv[]) {
 		}
 	}
 
-	if (argc > argnum) {								// argument = output filename
+	if (argc > optind) {								// argument = output filename
 		memset(FNout, 0, sizeof(FNout));
-		strcpy(FNout, argv[argnum]);
-		argnum++;
+		strcpy(FNout, argv[optind]);
+		optind++;
 		fout = fopen(FNout, "wb"); 
 	} else { 
 		fout = fopen(FNout, "wb"); 
@@ -621,50 +623,47 @@ int parseopt(char *parg, char *pvalue, char *flag) {
 void printhelp( ) {
 
 	diagflow("enter printhelp");
-	if ((optabout=='+') || (opthelp=='+')) {
-		printf("\n");
-		printf("Copyright 2001-2002, James M. Morrison\n");
-		printf("Version 00.02\n");
-	}
-	if (opthelp == '+') {
-		printf("\n"
-			"This program prepares an ASCII file for submission to a Hercules virtual\n"
-			"card reader.  It reads the input file, and provides a mechanism to include\n"
-			"other (ASCII or EBCDIC) files.  Files are included by specifying an 'include' \n"
-			"statement (beginning in column 1) whose format is:\n"
-			"	::C [path]filename\n"
-			"where:\n"
-			"	:: 		are the include escape characters\n"
-			"	C 		either E (EBCDIC) or A (ASCII) for the included file's\n"
-			"			character set.  The case of E or A is not significant.\n"
-			"	[path]filename 	specifies the filename and optional path of the file\n"
-			"			to be included.\n"
-			"\n"
-			"The main input file (specified on the command line) is assumed to be in\n"
-			"ASCII.  ASCII files are assumed to be of variable line lengths, EBCDIC\n"
-			"files are assumed to be of fixed length.  All input lines are translated\n"
-			"to EBCDIC (if necessary), and blank padded or truncated to %d characters\n"
-			"(subject to the trunc option).  Include statements are only recognized \n"
-			"in ASCII input files.\n"
-			"\n",
-			lrecl
-			);
-	}
-
-	if ((optsyntax=='+') || (opthelp=='+')) {
-		printf("\n");
-		printf("Syntax: %s [options...] input [output]\n", program);
-		printf("\n");
-		printf(" input     input filename\n");
-		printf(" output    output filename (default %s)\n", FNout);
-		printf("\n"
-			"Default options    on/yes(+)   off/no(-)    HELP (default: not displayed)\n"
-			"------------------------------------------- ------------------------------\n"
-			"-list    echo output (translated to ASCII)  -about    copyright & version\n"
-			"+trunc   truncate long ASCII lines (%d)     -help     general help\n"
-			"                                            -syntax   syntax help\n"
+	printf("\n");
+	printf("Copyright 2001-2002, James M. Morrison\n");
+	printf("Version 00.02\n");
+	printf("\n"
+		"This program prepares an ASCII file for submission to a Hercules virtual\n"
+		"card reader.  It reads the input file, and provides a mechanism to include\n"
+		"other (ASCII or EBCDIC) files.  Files are included by specifying an 'include' \n"
+		"statement (beginning in column 1) whose format is:\n"
+		"	::C [path]filename\n"
+		"where:\n"
+		"	:: 		are the include escape characters\n"
+		"	C 		either E (EBCDIC) or A (ASCII) for the included file's\n"
+		"			character set.  The case of E or A is not significant.\n"
+		"	[path]filename 	specifies the filename and optional path of the file\n"
+		"			to be included.\n"
+		"\n"
+		"The main input file (specified on the command line) is assumed to be in\n"
+		"ASCII.  ASCII files are assumed to be of variable line lengths, EBCDIC\n"
+		"files are assumed to be of fixed length.  All input lines are translated\n"
+		"to EBCDIC (if necessary), and blank padded or truncated to %d characters\n"
+		"(subject to the trunc option).  Include statements are only recognized \n"
+		"in ASCII input files.\n"
+		"\n",
+		lrecl
+		);
+	
+	printf("\n");
+	printf("Syntax: %s [options...] input [output]\n", program);
+	printf("\n");
+	printf(" input     input filename\n");
+	printf(" output    output filename (default %s)\n", FNout);
+	printf("\n"
+			"Options:\n"
+			"--help/-h		this help message\n"
+			"--verbose      be verbose\n"
+			"--debug        print debug information\n"
+			"--no-truncate  disable truncating after %d records\n"
+			"--print        print output in ASCII\n"
+			"--lrecl/-l     custom record length (default %d)"
 			"\n", lrecl);
-	}
+	
 	diagflow("exit printhelp");
 	return;
 } /* printhelp */
